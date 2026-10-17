@@ -126,7 +126,6 @@
   <div id="status" class="status"></div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <script>
 /* ============================ QUESTION BANK ============================ */
 const TRUTHS = {
@@ -230,9 +229,10 @@ const DARES = [
 const flatTruths = Object.entries(TRUTHS).flatMap(([cat, arr]) => arr.map(q => ({cat, q})));
 
 /* ============================ GLOBALS ============================ */
-const PREFIX = "tod-arcade-";
 const $ = id => document.getElementById(id);
-let peer = null, conn = null, isHost = false, myIdx = 0, myName = "", roomCode = "";
+let mq = null, base = "", isHost = false, myIdx = 0, myName = "", roomCode = "";
+const myCid = Math.random().toString(36).slice(2, 10);
+let guestCid = null, guestLinked = false, joinTimer = null, failTimer = null;
 let state = null, lastLotsId = null, animating = false, lastSig = "";
 
 const roomFromUrl = (new URLSearchParams(location.search).get("room") || "").toUpperCase();
@@ -304,18 +304,15 @@ function fail(msg){
   setStatus("");
 }
 
-/* ============================ NETWORKING ============================ */
-// STUN + TURN servers help two devices on different networks (Wi-Fi vs mobile data) find each other
-const PEER_OPTS = {
-  debug: 0,
-  config: { iceServers: [
-    { urls: "stun:stun.l.google.com:19302" },
-    { urls: "stun:global.stun.twilio.com:3478" },
-    { urls: "turn:openrelay.metered.ca:80", username: "openrelayproject", credential: "openrelayproject" },
-    { urls: "turn:openrelay.metered.ca:443", username: "openrelayproject", credential: "openrelayproject" },
-    { urls: "turn:openrelay.metered.ca:443?transport=tcp", username: "openrelayproject", credential: "openrelayproject" }
-  ]}
-};
+/* ============================ NETWORKING (relay over WebSocket) ============================ */
+// Both devices talk to a free public MQTT relay over secure WebSocket (port 443-style web traffic),
+// so no direct device-to-device connection is needed and it works across Wi-Fi / mobile data.
+const BROKERS = [
+  "wss://broker.hivemq.com:8884/mqtt",
+  "wss://broker.emqx.io:8084/mqtt",
+  "wss://test.mosquitto.org:8081"
+];
+const TOPIC_ROOT = "tod-arcade-v2/";
 
 function loadScript(src){
   return new Promise((res, rej) => {
@@ -323,16 +320,33 @@ function loadScript(src){
     s.src = src; s.onload = res; s.onerror = rej; document.head.appendChild(s);
   });
 }
-async function ensurePeerLib(){
-  if (window.Peer) return true;
+async function ensureLib(){
+  if (window.mqtt) return true;
   const urls = [
-    "https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js",
-    "https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.4/peerjs.min.js"
+    "https://cdn.jsdelivr.net/npm/mqtt@5.10.1/dist/mqtt.min.js",
+    "https://unpkg.com/mqtt@5.10.1/dist/mqtt.min.js",
+    "https://cdnjs.cloudflare.com/ajax/libs/mqtt/5.10.1/mqtt.min.js"
   ];
   for (const u of urls){
-    try{ await loadScript(u); if (window.Peer) return true; }catch(e){}
+    try{ await loadScript(u); if (window.mqtt) return true; }catch(e){}
   }
   return false;
+}
+
+function connectBroker(){
+  return new Promise((resolve, reject) => {
+    let i = 0;
+    const tryNext = () => {
+      if (i >= BROKERS.length) return reject(new Error("no broker"));
+      const url = BROKERS[i++];
+      let done = false;
+      const c = window.mqtt.connect(url, { clientId: "tod_" + myCid + "_" + i, clean: true, reconnectPeriod: 2000, connectTimeout: 6000 });
+      const to = setTimeout(() => { if (!done){ done = true; try{ c.end(true); }catch(_){} tryNext(); } }, 7000);
+      c.once("connect", () => { if (done) return; done = true; clearTimeout(to); resolve(c); });
+      c.once("error", () => { if (done) return; done = true; clearTimeout(to); try{ c.end(true); }catch(_){} tryNext(); });
+    };
+    tryNext();
+  });
 }
 
 function makeCode(){
@@ -341,72 +355,89 @@ function makeCode(){
   return s;
 }
 
-async function startHost(){
-  showBusy("Starting room...");
-  if (!(await ensurePeerLib())) return fail("Could not load the connection library. Check your internet, turn off any ad-blocker, and refresh.");
-  createRoom(0);
+function wire(){
+  mq.on("message", (topic, payload) => {
+    let d; try{ d = JSON.parse(payload.toString()); }catch(e){ return; }
+    if (!d) return;
+    if (isHost && topic === base + "/act") hostIncoming(d);
+    else if (!isHost && topic === base + "/state") guestIncoming(d);
+  });
+  mq.on("offline", () => setStatus("Connection lost. Reconnecting...", "bad"));
+  mq.on("connect", () => { setStatus("Connected", "good"); if (isHost && state && guestCid) publishState(); });
+  window.addEventListener("beforeunload", () => {
+    try{ if (isHost && mq) mq.publish(base + "/state", "", { retain: true }); }catch(_){}
+  });
 }
 
-function createRoom(attempt){
-  isHost = true; myIdx = 0; roomCode = makeCode();
-  let opened = false;
-  const timer = setTimeout(() => {
-    if (!opened) fail("Can't reach the matchmaking server. Check your internet, or turn off VPN / ad-blocker and try again.");
-  }, 12000);
-  peer = new Peer(PREFIX + roomCode, PEER_OPTS);
-  peer.on("error", e => {
-    if (e.type === "unavailable-id" && attempt < 5){ clearTimeout(timer); try{ peer.destroy(); }catch(_){} return createRoom(attempt + 1); }
-    if (!opened){ clearTimeout(timer); fail("Connection error: " + e.type); }
-    else setStatus("Error: " + e.type, "bad");
-  });
-  peer.on("open", () => {
-    opened = true; clearTimeout(timer);
+async function startHost(){
+  showBusy("Starting room...");
+  if (!(await ensureLib())) return fail("Could not load the connection library. Check your internet, turn off any ad-blocker, and refresh.");
+  try{ mq = await connectBroker(); }
+  catch(e){ return fail("Could not reach the game relay server. Check your internet, or turn off VPN / ad-blocker and try again."); }
+  isHost = true; myIdx = 0; roomCode = makeCode(); base = TOPIC_ROOT + roomCode; guestCid = null;
+  wire();
+  mq.subscribe(base + "/act", { qos: 1 }, err => {
+    if (err) return fail("Could not open the room. Please try again.");
+    mq.publish(base + "/state", "", { qos: 1, retain: true });   // clear any stale data for this code
     state = freshState();
     state.players[0] = myName;
     setStatus("Room ready", "good");
     render();
   });
-  peer.on("disconnected", () => { try{ peer.reconnect(); }catch(_){} });
-  peer.on("connection", c => {
-    if (conn && conn.open){ c.on("open", () => c.close()); return; }
-    conn = c;
-    c.on("data", d => hostHandle(d, 1));
-    c.on("close", () => setStatus("Player 2 disconnected", "bad"));
-  });
 }
 
 async function startGuest(code){
   showBusy("Joining room " + code + "...");
-  if (!(await ensurePeerLib())) return fail("Could not load the connection library. Check your internet, turn off any ad-blocker, and refresh.");
-  isHost = false; myIdx = 1; roomCode = code;
-  let connected = false;
-  const timer = setTimeout(() => {
-    if (!connected) fail("Could not reach room " + code + ". Make sure the host's tab is still open and the code is correct. If you are on mobile data, try the same Wi-Fi as the host.");
-  }, 20000);
-  peer = new Peer(PEER_OPTS);
-  peer.on("error", e => {
-    if (connected){ setStatus("Error: " + e.type, "bad"); return; }
-    clearTimeout(timer);
-    fail(e.type === "peer-unavailable"
-      ? "Room " + code + " not found. Ask the host to keep their page open and check the code."
-      : "Connection error: " + e.type);
-  });
-  peer.on("disconnected", () => { try{ peer.reconnect(); }catch(_){} });
-  peer.on("open", () => {
-    conn = peer.connect(PREFIX + code, { reliable: true });
-    conn.on("open", () => { connected = true; clearTimeout(timer); conn.send({ t: "join", name: myName }); setStatus("Connected", "good"); });
-    conn.on("data", d => { if (d.t === "state"){ state = d.s; render(); } });
-    conn.on("close", () => setStatus("Host disconnected. Refresh to rejoin.", "bad"));
-    conn.on("error", e => setStatus("Link error", "bad"));
+  if (!(await ensureLib())) return fail("Could not load the connection library. Check your internet, turn off any ad-blocker, and refresh.");
+  try{ mq = await connectBroker(); }
+  catch(e){ return fail("Could not reach the game relay server. Check your internet, or turn off VPN / ad-blocker and try again."); }
+  isHost = false; myIdx = 1; roomCode = code; base = TOPIC_ROOT + code;
+  wire();
+  const sendJoin = () => mq.publish(base + "/act", JSON.stringify({ t: "join", name: myName, cid: myCid }), { qos: 1 });
+  mq.subscribe(base + "/state", { qos: 1 }, err => {
+    if (err) return fail("Could not join the room. Please try again.");
+    sendJoin();
+    joinTimer = setInterval(() => { if (!guestLinked) sendJoin(); }, 2500);
+    failTimer = setTimeout(() => {
+      if (!guestLinked){
+        clearInterval(joinTimer);
+        fail("Room " + code + " not found or already full. Check the code and make sure the host still has the game open.");
+      }
+    }, 12000);
   });
 }
 
-function broadcast(){ if (conn && conn.open) conn.send({ t: "state", s: state }); render(); }
+function guestIncoming(d){
+  if (!guestLinked){
+    if (d.ack !== myCid) return;           // ignore old leftover data until the host confirms our join
+    guestLinked = true; clearInterval(joinTimer); clearTimeout(failTimer);
+    setStatus("Connected", "good");
+  }
+  state = d; render();
+}
+
+function hostIncoming(d){
+  if (d.t === "join"){
+    if (guestCid && guestCid !== d.cid && state.players[1] && state.players[1] !== d.name) return;  // room is taken
+    guestCid = d.cid;
+    state.players[1] = d.name;
+    if (state.phase === "waiting") state.phase = "ready";
+    state.ack = d.cid;
+    setStatus("Both players connected", "good");
+    return broadcast();
+  }
+  if (d.t === "act" && d.cid === guestCid) hostHandle(d, 1);
+}
+
+function publishState(){
+  if (mq && mq.connected) mq.publish(base + "/state", JSON.stringify(state), { qos: 1, retain: true });
+}
+function broadcast(){ if (guestCid) publishState(); render(); }
 
 function act(action, extra = {}){
-  const msg = { t: "act", a: action, ...extra };
+  const msg = { t: "act", a: action, cid: myCid, ...extra };
   if (isHost) hostHandle(msg, 0);
-  else if (conn && conn.open) conn.send(msg);
+  else if (mq && mq.connected) mq.publish(base + "/act", JSON.stringify(msg), { qos: 1 });
 }
 
 /* ============================ HOST LOGIC ============================ */
@@ -427,12 +458,6 @@ function pickQuestion(type){
 }
 
 function hostHandle(d, from){
-  if (d.t === "join"){
-    state.players[1] = d.name;
-    if (state.phase === "waiting") state.phase = "ready";
-    setStatus("Both players connected", "good");
-    return broadcast();
-  }
   if (d.t !== "act") return;
   const mine = state.turn === from;
 
