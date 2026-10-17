@@ -63,11 +63,6 @@
   .pcard.active{border-color:var(--c);box-shadow:0 0 22px color-mix(in srgb,var(--c) 45%,transparent),inset 0 0 18px color-mix(in srgb,var(--c) 18%,transparent)}
   .pname{font-size:.72rem;font-weight:700;color:var(--c);letter-spacing:.08em;word-break:break-word;min-height:1.1em}
   .you{font-size:.55rem;background:var(--c);color:#08071a;padding:1px 5px;border-radius:5px;margin-left:3px;vertical-align:middle}
-  .pscore{font-size:2.2rem;font-weight:900;margin:2px 0;text-shadow:0 0 14px var(--c)}
-  .bar{height:7px;border-radius:9px;background:#1d1948;overflow:hidden}
-  .bar i{display:block;height:100%;background:var(--c);box-shadow:0 0 10px var(--c);transition:width .6s cubic-bezier(.2,.9,.3,1.2)}
-  .streak{font-size:.7rem;color:#ff9a3d;height:1em;margin-top:5px;font-weight:700}
-  .round{text-align:center;font-size:.65rem;letter-spacing:.25em;color:var(--mute);margin:10px 0 14px}
 
   /* Pick cards */
   .picks{display:flex;gap:12px}
@@ -90,9 +85,6 @@
   .qtype{display:inline-block;background:var(--c);color:#08071a;font-weight:900;font-size:.8rem;letter-spacing:.2em;padding:5px 14px;border-radius:8px}
   .qcat{float:right;font-size:.62rem;letter-spacing:.2em;color:var(--mute);margin-top:7px;text-transform:uppercase}
   .qtext{font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;font-weight:700;font-size:1.35rem;line-height:1.45;text-align:center;margin:26px 0 22px;clear:both}
-  .timer{height:8px;border-radius:9px;background:#1d1948;overflow:hidden}
-  .timer i{display:block;height:100%;width:100%;background:var(--c);box-shadow:0 0 10px var(--c);animation:shrink linear forwards;transform-origin:left}
-  @keyframes shrink{to{width:0}}
   .live{display:flex;align-items:center;justify-content:center;gap:8px;font-size:.7rem;letter-spacing:.2em;color:var(--mute);margin-top:4px}
   .live b{width:9px;height:9px;border-radius:50%;background:var(--dare);box-shadow:0 0 10px var(--dare);animation:blink 1s infinite}
   @keyframes blink{50%{opacity:.25}}
@@ -119,13 +111,6 @@
   .face.f1{background:radial-gradient(circle at 30% 30%,#ffe29a,var(--p1));--c:var(--p1);transform:rotateY(180deg)}
   .winner{font-size:1.5rem;font-weight:900;line-height:1.3;color:var(--gold);text-shadow:0 0 18px #ffd40099;margin:4px 0 2px}
 
-  /* Toast */
-  #toast{position:fixed;left:50%;top:38%;transform:translate(-50%,0);z-index:20;pointer-events:none;font-weight:900;font-size:2.2rem;
-    opacity:0;text-shadow:0 0 22px currentColor;text-align:center;white-space:nowrap}
-  #toast.show{animation:rise 1.5s ease-out forwards}
-  @keyframes rise{0%{opacity:0;transform:translate(-50%,30px) scale(.6)}15%{opacity:1;transform:translate(-50%,0) scale(1.15)}70%{opacity:1}100%{opacity:0;transform:translate(-50%,-60px) scale(1)}}
-
-  #confetti{position:fixed;inset:0;pointer-events:none;z-index:15}
   .status{text-align:center;font-size:.62rem;letter-spacing:.18em;margin-top:8px;color:var(--mute);text-transform:uppercase}
   .status.bad{color:var(--dare)} .status.good{color:var(--good)}
   .pop{animation:pop .35s ease}
@@ -134,8 +119,6 @@
 </head>
 <body>
 <button id="mute" title="Sound">🔊</button>
-<canvas id="confetti"></canvas>
-<div id="toast"></div>
 
 <div class="app">
   <div class="logo"><span class="t">TRUTH</span><span class="o">or</span><span class="d">DARE</span></div>
@@ -147,112 +130,110 @@
 <script>
 /* ============================ QUESTION BANK ============================ */
 const TRUTHS = {
-  "Childhood": [
-    "What is your earliest childhood memory?",
-    "What was your favourite cartoon growing up?",
-    "What is the naughtiest thing you did as a kid?",
-    "Which school memory still makes you smile?",
-    "Who was your childhood hero?",
-    "What did you want to become when you were 8 years old?",
-    "What is a childhood fear you still have a little bit?",
-    "What was your favourite game to play outside?"
+  "Confession": [
+    "What is the biggest lie you have told that you got away with?",
+    "What is a secret you have kept from your parents all this time?",
+    "What is the worst thing you have said about someone behind their back?",
+    "What is the most embarrassing thing you have done to impress someone?",
+    "Have you ever pretended to like a gift? What was it?",
+    "What is the biggest lie you tell yourself while 'studying'?",
+    "Have you ever cheated in an exam? How?",
+    "What is the most childish thing you still do?",
+    "What is the dumbest thing you have ever cried over?",
+    "What is the most trouble you have ever been in?"
   ],
-  "Values": [
-    "What is one value you will never compromise on?",
-    "What does a successful life look like to you?",
-    "What is something most people believe that you disagree with?",
-    "What quality do you admire most in other people?",
-    "What does loyalty mean to you?",
-    "When did you last change your mind about something important?",
-    "What is the best advice you have ever received?",
-    "What matters more to you: respect or love? Why?"
+  "Crush & Love": [
+    "Who was your last crush, and did they ever find out?",
+    "Have you ever liked two people at the same time?",
+    "What is the first thing you notice about someone you find attractive?",
+    "Have you ever had a crush on a teacher?",
+    "Describe your type in exactly three words.",
+    "What is the worst pickup line you have ever used or received?",
+    "Have you ever been rejected? How bad was it?",
+    "Have you ever stalked an ex's or crush's profile? How recently?",
+    "What is your idea of a perfect first date?",
+    "Have you ever fallen for someone way too fast?"
   ],
-  "Future": [
-    "Where do you see yourself in 10 years?",
-    "If money was no issue, how would you spend your days?",
-    "What is one big dream you have not told many people about?",
-    "Which city or country do you dream of living in?",
-    "What is one skill you badly want to master?",
-    "What would your dream home look like?",
-    "What is one thing you want to be remembered for?",
-    "What is your biggest goal for this year?"
+  "Awkward": [
+    "What is the worst date or hangout you have ever been on?",
+    "Have you ever sent a text to the wrong person? What was it?",
+    "What is your most embarrassing 'almost got caught' moment?",
+    "What is the most cringe thing you have ever posted online?",
+    "What is the longest you have gone without a shower?",
+    "What is the most awkward thing a stranger has ever said to you?",
+    "What is the most desperate thing you have done for attention or likes?",
+    "What nickname do you absolutely hate?",
+    "What is something you pretend to understand but actually don't?",
+    "What is the most embarrassing song on your playlist?"
   ],
-  "Fears": [
-    "What is your biggest fear about the future?",
-    "What is something you are insecure about?",
-    "What is the hardest period you have been through, and what got you out of it?",
-    "What do you do when you feel overwhelmed?",
-    "What is a mistake that taught you the most?",
-    "When do you feel most alone?",
-    "What is something you wish you could forgive yourself for?",
-    "What do you pretend to be okay with, but are not?"
+  "Petty & Spicy": [
+    "What is your biggest red flag?",
+    "What is your most toxic trait?",
+    "What is the pettiest reason you have stopped talking to someone?",
+    "What is the one 'ick' that instantly turns you off?",
+    "Who in your contacts would you never want me to text?",
+    "What would your friends say is your most annoying habit?",
+    "Which friend would be the first to turn on the group in a zombie apocalypse?",
+    "Rate your own looks from 1 to 10, honestly.",
+    "Who is the most overrated person you know?",
+    "What is the one thing you would change about your personality?"
   ],
-  "People": [
-    "What makes you trust someone?",
-    "What is your biggest turn-off in a person?",
-    "What is the most thoughtful thing someone has done for you?",
-    "What is your love language: words, time, gifts, touch or acts of service?",
-    "What is one thing you look for in a close friend?",
-    "Have you ever lost a friend? What happened?",
-    "What is something you wish people understood about you?",
-    "How do you usually show someone you care?"
-  ],
-  "Random": [
-    "What is your most embarrassing moment?",
-    "What is your guilty-pleasure song?",
-    "If you could have dinner with anyone, living or dead, who would it be?",
-    "What is the weirdest dream you can remember?",
-    "What is your most useless talent?",
-    "Which app do you spend the most time on, and how many hours a day?",
-    "What is the most spontaneous thing you have ever done?",
-    "If you had a superpower for one day, what would you do with it?"
-  ],
-  "Deep": [
-    "What does happiness mean to you?",
-    "If you could relive one day of your life, which would it be?",
-    "What is one thing you are grateful for today?",
-    "What do you think is your biggest strength? And your biggest weakness?",
-    "What is something you have never said out loud but want to?",
-    "What would you do if you knew you could not fail?",
-    "What part of your personality did you get from your family?",
-    "What has changed about you the most in the last 3 years?"
+  "Wild": [
+    "What is the weirdest thing you have ever eaten?",
+    "If you had to delete one app forever, which would it be?",
+    "Which friend would you swap lives with for a week?",
+    "What is the most expensive thing you have broken and blamed on someone else?",
+    "If you were invisible for a day, what is the first thing you would do?",
+    "What is the strangest dream you have had about someone you know?",
+    "If you had to marry one person from your contact list, who would it be?",
+    "What is the most illegal thing you have ever done, even if it was tiny?",
+    "What would you do if you woke up as the opposite gender for a day?",
+    "What is your most unpopular opinion that would start a fight?"
   ]
 };
 const DARES = [
-  "Sing the chorus of your favourite song out loud.",
-  "Do your best impression of someone you both know.",
-  "Send a voice note saying something nice to a friend.",
-  "Speak in an accent of your choice for the next 3 turns.",
-  "Do 15 jumping jacks right now.",
-  "Show the last photo in your gallery.",
-  "Dance for 20 seconds with no music.",
-  "Tell a joke. If the other player does not laugh, tell another.",
-  "Make the funniest face you can and hold it for 10 seconds.",
-  "Say the alphabet backwards, as fast as you can.",
-  "Compliment the other player in 3 different ways.",
-  "Act out a movie scene and let the other player guess it.",
-  "Talk without using the letter 'E' for 30 seconds.",
-  "Draw the other player in 30 seconds and show them.",
-  "Balance something on your head for 15 seconds.",
-  "Announce today's weather in a news-anchor voice.",
-  "Name 10 fruits in 10 seconds.",
-  "Hum a song and make the other player guess it.",
-  "Let the other player give you a nickname for the rest of the game.",
-  "Do a slow-motion replay of something you did today.",
-  "Write a 2-line poem about the other player, right now.",
-  "Stand on one leg for 30 seconds without holding anything.",
-  "Make up a 15-second advertisement for the object nearest to you.",
-  "Say a motivational line like a movie hero.",
-  "Do your best villain laugh for 10 seconds."
+  "Send a heart emoji to the 5th person in your chat list. No explanation.",
+  "Read out the last message you sent, in a dramatic voice.",
+  "Do your best catwalk across the room.",
+  "Sing your favourite song in the most dramatic opera voice you can.",
+  "Show the other player your phone's screen-time page.",
+  "Do 10 push-ups right now.",
+  "Make up a pickup line on the spot and say it with a straight face.",
+  "Do your best impression of the other player for 30 seconds.",
+  "Speak only in questions for the next 3 turns.",
+  "Whisper everything you say for the next 2 turns.",
+  "Show the most embarrassing photo in your gallery.",
+  "Reenact a famous movie death scene.",
+  "Do the worst dance you can for 20 seconds.",
+  "Send a voice note to a friend saying 'I miss you' in an over-the-top dramatic voice.",
+  "Give the other player an honest first impression of them. No sugar-coating.",
+  "Let the other player ask you ONE question. You must answer it honestly.",
+  "Make an evil-villain speech about your exam syllabus.",
+  "Try to keep eye contact for 30 seconds without laughing.",
+  "Change your WhatsApp status to whatever the other player says, for 1 hour.",
+  "Talk in a baby voice for the next 2 turns.",
+  "Do your best impression of a news anchor reporting your most embarrassing moment.",
+  "Take a selfie with the funniest face you can make and show it.",
+  "Say the alphabet backwards without making a mistake.",
+  "Describe your crush using only emojis. The other player has to guess.",
+  "Let the other player pick a nickname for you. You must use it for the rest of the game.",
+  "Say something sweet and something petty about the other player.",
+  "Act like a chicken until your next turn.",
+  "Do your best Bollywood hero entry, slow motion included.",
+  "Call someone and sing them a happy birthday, even if it is not their birthday.",
+  "Post a blank story with the caption 'thoughts?' and wait for replies.",
+  "Do your most dramatic breakup monologue to an imaginary ex.",
+  "Eat a spoonful of any weird condiment you find.",
+  "Make up a 15-second advertisement for the object closest to you.",
+  "Tell the other player your most useless talent, and show it off live."
 ];
 const flatTruths = Object.entries(TRUTHS).flatMap(([cat, arr]) => arr.map(q => ({cat, q})));
 
 /* ============================ GLOBALS ============================ */
 const PREFIX = "tod-arcade-";
-const TARGET = 100;
 const $ = id => document.getElementById(id);
 let peer = null, conn = null, isHost = false, myIdx = 0, myName = "", roomCode = "";
-let state = null, lastLotsId = null, animating = false, lastSig = "", lastEventId = null;
+let state = null, lastLotsId = null, animating = false, lastSig = "";
 
 const roomFromUrl = (new URLSearchParams(location.search).get("room") || "").toUpperCase();
 const rand = n => Math.floor(Math.random() * n);
@@ -279,35 +260,10 @@ function beep(freqs, dur = .09, type = "square", vol = .06){
 const sfx = {
   click: () => beep([520]),
   reveal: () => beep([330, 440, 660], .08),
-  good: () => beep([523, 659, 784, 1046], .08),
-  bad: () => beep([300, 200], .12, "sawtooth"),
-  win: () => beep([523, 659, 784, 1046, 784, 1046, 1318], .11),
+  good: () => beep([523, 659, 784], .08),
   coin: () => beep([800, 1000, 1200], .06, "triangle")
 };
 $("mute").onclick = () => { muted = !muted; $("mute").textContent = muted ? "🔇" : "🔊"; };
-
-/* ============================ FX ============================ */
-function toast(text, color){
-  const t = $("toast"); t.textContent = text; t.style.color = color;
-  t.classList.remove("show"); void t.offsetWidth; t.classList.add("show");
-}
-function confetti(){
-  const c = $("confetti"), x = c.getContext("2d");
-  c.width = innerWidth; c.height = innerHeight;
-  const cols = ["#00f0ff","#ffb300","#ff4057","#2cff9a","#ffd400","#c77dff"];
-  const ps = Array.from({length: 140}, () => ({
-    x: Math.random() * c.width, y: -20 - Math.random() * c.height * .5,
-    r: 4 + Math.random() * 6, vy: 2 + Math.random() * 4, vx: -2 + Math.random() * 4,
-    col: cols[rand(cols.length)], rot: Math.random() * 6
-  }));
-  let frames = 0;
-  (function loop(){
-    x.clearRect(0, 0, c.width, c.height);
-    ps.forEach(p => { p.x += p.vx; p.y += p.vy; p.rot += .1;
-      x.save(); x.translate(p.x, p.y); x.rotate(p.rot); x.fillStyle = p.col; x.fillRect(-p.r, -p.r / 2, p.r * 2, p.r); x.restore(); });
-    if (++frames < 260) requestAnimationFrame(loop); else x.clearRect(0, 0, c.width, c.height);
-  })();
-}
 
 /* ============================ HOME ============================ */
 function renderHome(){
@@ -455,8 +411,7 @@ function act(action, extra = {}){
 
 /* ============================ HOST LOGIC ============================ */
 function freshState(){
-  return { players: [myName, null], phase: "waiting", turn: 0, lots: null, type: null, text: "", cat: "",
-           round: 1, usedT: [], usedD: [], scores: [0, 0], streak: [0, 0], target: TARGET, winner: null, event: null };
+  return { players: [myName, null], phase: "waiting", turn: 0, lots: null, type: null, text: "", cat: "", usedT: [], usedD: [] };
 }
 
 function pickQuestion(type){
@@ -468,10 +423,8 @@ function pickQuestion(type){
   used.push(i);
   state.type = type;
   state.text = type === "truth" ? pool[i].q : pool[i];
-  state.cat = type === "truth" ? pool[i].cat : "Challenge";
+  state.cat = type === "truth" ? pool[i].cat : "Dare";
 }
-
-function setEvent(text, kind){ state.event = { id: Date.now() + Math.random(), text, kind }; }
 
 function hostHandle(d, from){
   if (d.t === "join"){
@@ -501,46 +454,23 @@ function hostHandle(d, from){
       break;
     case "skip":
       if (state.phase !== "prompt" || !mine) return;
-      state.scores[state.turn] = Math.max(0, state.scores[state.turn] - 5);
-      state.streak[state.turn] = 0;
-      setEvent("SKIPPED −5", "bad");
       pickQuestion(state.type);
       break;
-    case "done": {
+    case "done":
       if (state.phase !== "prompt" || !mine) return;
-      const t = state.turn;
-      state.streak[t] += 1;
-      const bonus = state.streak[t] >= 2 ? 5 : 0;
-      state.scores[t] += 10 + bonus;
-      setEvent(bonus ? `COMBO ×${state.streak[t]}  +${10 + bonus}` : "+10", "good");
-      if (state.scores[t] >= state.target){
-        state.phase = "over"; state.winner = t;
-      } else {
-        state.turn = 1 - t; state.round += 1; state.phase = "choose";
-      }
-      break;
-    }
-    case "rematch":
-      if (state.phase !== "over") return;
-      Object.assign(state, { phase: "ready", round: 1, usedT: [], usedD: [], scores: [0, 0], streak: [0, 0], winner: null, text: "", event: null });
+      state.turn = 1 - state.turn;
+      state.phase = "choose";
       break;
   }
   broadcast();
 }
 
 /* ============================ RENDER ============================ */
-function hud(){
-  const p = state.players, s = state.scores, st = state.streak;
-  const live = ["choose", "prompt"].includes(state.phase);
-  const card = i => `
-    <div class="pcard p${i} ${live && state.turn === i ? "active" : ""}">
-      <div class="pname">${esc(p[i] || "...")}${i === myIdx ? '<span class="you">YOU</span>' : ""}</div>
-      <div class="pscore">${s[i]}</div>
-      <div class="bar"><i style="width:${Math.min(100, s[i] / state.target * 100)}%"></i></div>
-      <div class="streak">${st[i] >= 2 ? "🔥 ×" + st[i] : ""}</div>
-    </div>`;
-  return `<div class="hud">${card(0)}<div class="vs">VS</div>${card(1)}</div>
-          <div class="round">ROUND ${String(state.round).padStart(2, "0")} · FIRST TO ${state.target}</div>`;
+function turnBar(){
+  const p = state.players;
+  const chip = i => `<div class="pcard p${i} ${state.turn === i ? "active" : ""}">
+      <div class="pname">${esc(p[i] || "...")}${i === myIdx ? '<span class="you">YOU</span>' : ""}</div></div>`;
+  return `<div class="hud">${chip(0)}<div class="vs">VS</div>${chip(1)}</div>`;
 }
 
 function render(){
@@ -551,18 +481,10 @@ function render(){
     lastLotsId = state.lots.id; return runCoin();
   }
 
-  // sound + toast reactions to synced state
-  const sig = state.phase + state.round + state.text + state.scores.join();
+  const sig = state.phase + state.text;
   if (sig !== lastSig){
     lastSig = sig;
     if (state.phase === "prompt") sfx.reveal();
-    if (state.phase === "over"){ sfx.win(); confetti(); }
-  }
-  if (state.event && state.event.id !== lastEventId){
-    lastEventId = state.event.id;
-    toast(state.event.text, state.event.kind === "good" ? "var(--good)" : "var(--dare)");
-    state.event.kind === "good" ? sfx.good() : sfx.bad();
-    if (navigator.vibrate) navigator.vibrate(state.event.kind === "good" ? 60 : [40, 40, 40]);
   }
 
   const meTurn = state.turn === myIdx;
@@ -605,39 +527,27 @@ function render(){
       <div class="panel center pop">
         <div class="label">First turn</div>
         <div class="winner">${esc(turnName)}</div>
-        <button class="btn go" id="start">START MATCH</button>
+        <button class="btn go" id="start">START</button>
       </div>`;
   }
   else if (state.phase === "choose"){
-    html = hud() + `
-      <div class="center label" style="margin-bottom:12px">${meTurn ? "Your move" : esc(turnName) + " is picking"}</div>
+    html = turnBar() + `
+      <div class="center label" style="margin:14px 0 12px">${meTurn ? "Your move" : esc(turnName) + " is picking"}</div>
       <div class="picks">
-        <button class="pick truth" id="truth" ${meTurn ? "" : "disabled"}><span class="ic">🧠</span>TRUTH</button>
+        <button class="pick truth" id="truth" ${meTurn ? "" : "disabled"}><span class="ic">🌶️</span>TRUTH</button>
         <button class="pick dare" id="dare" ${meTurn ? "" : "disabled"}><span class="ic">🔥</span>DARE</button>
       </div>`;
   }
   else if (state.phase === "prompt"){
-    const secs = state.type === "truth" ? 45 : 60;
-    html = hud() + `
-      <div class="qcard ${state.type}" id="qc">
+    html = turnBar() + `
+      <div class="qcard ${state.type}" style="margin-top:14px">
         <span class="qtype">${state.type.toUpperCase()}</span><span class="qcat">${esc(state.cat)}</span>
         <div class="qtext">${esc(state.text)}</div>
-        <div class="timer"><i style="animation-duration:${secs}s"></i></div>
       </div>
       ${meTurn
-        ? `<button class="btn go" id="done">✔ COMPLETE</button>
-           <button class="btn skip" id="skip">⏭ SKIP  −5</button>`
-        : `<div class="live"><b></b>${esc(turnName)} IS ON IT</div>`}`;
-  }
-  else if (state.phase === "over"){
-    const w = state.winner;
-    html = hud() + `
-      <div class="panel center pop">
-        <div class="label">Game over</div>
-        <div class="winner" style="font-size:1.9rem">🏆 ${esc(state.players[w])} WINS</div>
-        <div class="mute" style="margin-top:6px">${state.scores[0]} – ${state.scores[1]}</div>
-        <button class="btn" id="rematch">REMATCH</button>
-      </div>`;
+        ? `<button class="btn go" id="done">NEXT PLAYER ➜</button>
+           <button class="btn skip" id="skip">🔄 NEW ${state.type.toUpperCase()}</button>`
+        : `<div class="live"><b></b>${esc(turnName)}</div>`}`;
   }
 
   $("view").innerHTML = html;
@@ -648,7 +558,6 @@ function render(){
   on("dare", () => act("choose", { type: "dare" }));
   on("done", () => act("done"));
   on("skip", () => act("skip"));
-  on("rematch", () => act("rematch"));
 }
 
 function runCoin(){
