@@ -110,4 +110,568 @@
   /* Coin */
   .coinwrap{perspective:900px;height:150px;display:flex;align-items:center;justify-content:center;margin:14px 0}
   .coinbounce{animation:toss 2.6s cubic-bezier(.3,.7,.4,1)}
-  @keyframes
+  @keyframes toss{0%{transform:translateY(0)}35%{transform:translateY(-70px)}100%{transform:translateY(0)}}
+  .coin{width:120px;height:120px;position:relative;transform-style:preserve-3d;transition:transform 2.5s cubic-bezier(.2,.8,.2,1)}
+  .face{position:absolute;inset:0;border-radius:50%;display:flex;align-items:center;justify-content:center;text-align:center;
+    backface-visibility:hidden;font-weight:900;font-size:.85rem;padding:10px;word-break:break-word;border:5px solid #fff3;color:#08071a;
+    box-shadow:inset 0 0 20px #0005,0 0 26px var(--c)}
+  .face.f0{background:radial-gradient(circle at 30% 30%,#9ffaff,var(--p0));--c:var(--p0)}
+  .face.f1{background:radial-gradient(circle at 30% 30%,#ffe29a,var(--p1));--c:var(--p1);transform:rotateY(180deg)}
+  .winner{font-size:1.5rem;font-weight:900;line-height:1.3;color:var(--gold);text-shadow:0 0 18px #ffd40099;margin:4px 0 2px}
+
+  /* Toast */
+  #toast{position:fixed;left:50%;top:38%;transform:translate(-50%,0);z-index:20;pointer-events:none;font-weight:900;font-size:2.2rem;
+    opacity:0;text-shadow:0 0 22px currentColor;text-align:center;white-space:nowrap}
+  #toast.show{animation:rise 1.5s ease-out forwards}
+  @keyframes rise{0%{opacity:0;transform:translate(-50%,30px) scale(.6)}15%{opacity:1;transform:translate(-50%,0) scale(1.15)}70%{opacity:1}100%{opacity:0;transform:translate(-50%,-60px) scale(1)}}
+
+  #confetti{position:fixed;inset:0;pointer-events:none;z-index:15}
+  .status{text-align:center;font-size:.62rem;letter-spacing:.18em;margin-top:8px;color:var(--mute);text-transform:uppercase}
+  .status.bad{color:var(--dare)} .status.good{color:var(--good)}
+  .pop{animation:pop .35s ease}
+  @keyframes pop{from{transform:scale(.92);opacity:0}to{transform:scale(1);opacity:1}}
+</style>
+</head>
+<body>
+<button id="mute" title="Sound">🔊</button>
+<canvas id="confetti"></canvas>
+<div id="toast"></div>
+
+<div class="app">
+  <div class="logo"><span class="t">TRUTH</span><span class="o">or</span><span class="d">DARE</span></div>
+  <div id="view"></div>
+  <div id="status" class="status"></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script>
+/* ============================ QUESTION BANK ============================ */
+const TRUTHS = {
+  "Childhood": [
+    "What is your earliest childhood memory?",
+    "What was your favourite cartoon growing up?",
+    "What is the naughtiest thing you did as a kid?",
+    "Which school memory still makes you smile?",
+    "Who was your childhood hero?",
+    "What did you want to become when you were 8 years old?",
+    "What is a childhood fear you still have a little bit?",
+    "What was your favourite game to play outside?"
+  ],
+  "Values": [
+    "What is one value you will never compromise on?",
+    "What does a successful life look like to you?",
+    "What is something most people believe that you disagree with?",
+    "What quality do you admire most in other people?",
+    "What does loyalty mean to you?",
+    "When did you last change your mind about something important?",
+    "What is the best advice you have ever received?",
+    "What matters more to you: respect or love? Why?"
+  ],
+  "Future": [
+    "Where do you see yourself in 10 years?",
+    "If money was no issue, how would you spend your days?",
+    "What is one big dream you have not told many people about?",
+    "Which city or country do you dream of living in?",
+    "What is one skill you badly want to master?",
+    "What would your dream home look like?",
+    "What is one thing you want to be remembered for?",
+    "What is your biggest goal for this year?"
+  ],
+  "Fears": [
+    "What is your biggest fear about the future?",
+    "What is something you are insecure about?",
+    "What is the hardest period you have been through, and what got you out of it?",
+    "What do you do when you feel overwhelmed?",
+    "What is a mistake that taught you the most?",
+    "When do you feel most alone?",
+    "What is something you wish you could forgive yourself for?",
+    "What do you pretend to be okay with, but are not?"
+  ],
+  "People": [
+    "What makes you trust someone?",
+    "What is your biggest turn-off in a person?",
+    "What is the most thoughtful thing someone has done for you?",
+    "What is your love language: words, time, gifts, touch or acts of service?",
+    "What is one thing you look for in a close friend?",
+    "Have you ever lost a friend? What happened?",
+    "What is something you wish people understood about you?",
+    "How do you usually show someone you care?"
+  ],
+  "Random": [
+    "What is your most embarrassing moment?",
+    "What is your guilty-pleasure song?",
+    "If you could have dinner with anyone, living or dead, who would it be?",
+    "What is the weirdest dream you can remember?",
+    "What is your most useless talent?",
+    "Which app do you spend the most time on, and how many hours a day?",
+    "What is the most spontaneous thing you have ever done?",
+    "If you had a superpower for one day, what would you do with it?"
+  ],
+  "Deep": [
+    "What does happiness mean to you?",
+    "If you could relive one day of your life, which would it be?",
+    "What is one thing you are grateful for today?",
+    "What do you think is your biggest strength? And your biggest weakness?",
+    "What is something you have never said out loud but want to?",
+    "What would you do if you knew you could not fail?",
+    "What part of your personality did you get from your family?",
+    "What has changed about you the most in the last 3 years?"
+  ]
+};
+const DARES = [
+  "Sing the chorus of your favourite song out loud.",
+  "Do your best impression of someone you both know.",
+  "Send a voice note saying something nice to a friend.",
+  "Speak in an accent of your choice for the next 3 turns.",
+  "Do 15 jumping jacks right now.",
+  "Show the last photo in your gallery.",
+  "Dance for 20 seconds with no music.",
+  "Tell a joke. If the other player does not laugh, tell another.",
+  "Make the funniest face you can and hold it for 10 seconds.",
+  "Say the alphabet backwards, as fast as you can.",
+  "Compliment the other player in 3 different ways.",
+  "Act out a movie scene and let the other player guess it.",
+  "Talk without using the letter 'E' for 30 seconds.",
+  "Draw the other player in 30 seconds and show them.",
+  "Balance something on your head for 15 seconds.",
+  "Announce today's weather in a news-anchor voice.",
+  "Name 10 fruits in 10 seconds.",
+  "Hum a song and make the other player guess it.",
+  "Let the other player give you a nickname for the rest of the game.",
+  "Do a slow-motion replay of something you did today.",
+  "Write a 2-line poem about the other player, right now.",
+  "Stand on one leg for 30 seconds without holding anything.",
+  "Make up a 15-second advertisement for the object nearest to you.",
+  "Say a motivational line like a movie hero.",
+  "Do your best villain laugh for 10 seconds."
+];
+const flatTruths = Object.entries(TRUTHS).flatMap(([cat, arr]) => arr.map(q => ({cat, q})));
+
+/* ============================ GLOBALS ============================ */
+const PREFIX = "tod-arcade-";
+const TARGET = 100;
+const $ = id => document.getElementById(id);
+let peer = null, conn = null, isHost = false, myIdx = 0, myName = "", roomCode = "";
+let state = null, lastLotsId = null, animating = false, lastSig = "", lastEventId = null;
+
+const roomFromUrl = (new URLSearchParams(location.search).get("room") || "").toUpperCase();
+const rand = n => Math.floor(Math.random() * n);
+function esc(t){ const d = document.createElement("div"); d.textContent = t; return d.innerHTML; }
+function setStatus(msg, cls = ""){ const s = $("status"); s.textContent = msg; s.className = "status " + cls; }
+
+/* ============================ SOUND ============================ */
+let muted = false, ac = null;
+function beep(freqs, dur = .09, type = "square", vol = .06){
+  if (muted) return;
+  try{
+    ac = ac || new (window.AudioContext || window.webkitAudioContext)();
+    const t = ac.currentTime;
+    freqs.forEach((f, i) => {
+      const o = ac.createOscillator(), g = ac.createGain();
+      o.type = type; o.frequency.value = f;
+      g.gain.setValueAtTime(vol, t + i * dur);
+      g.gain.exponentialRampToValueAtTime(.001, t + (i + 1) * dur);
+      o.connect(g); g.connect(ac.destination);
+      o.start(t + i * dur); o.stop(t + (i + 1) * dur);
+    });
+  }catch(e){}
+}
+const sfx = {
+  click: () => beep([520]),
+  reveal: () => beep([330, 440, 660], .08),
+  good: () => beep([523, 659, 784, 1046], .08),
+  bad: () => beep([300, 200], .12, "sawtooth"),
+  win: () => beep([523, 659, 784, 1046, 784, 1046, 1318], .11),
+  coin: () => beep([800, 1000, 1200], .06, "triangle")
+};
+$("mute").onclick = () => { muted = !muted; $("mute").textContent = muted ? "🔇" : "🔊"; };
+
+/* ============================ FX ============================ */
+function toast(text, color){
+  const t = $("toast"); t.textContent = text; t.style.color = color;
+  t.classList.remove("show"); void t.offsetWidth; t.classList.add("show");
+}
+function confetti(){
+  const c = $("confetti"), x = c.getContext("2d");
+  c.width = innerWidth; c.height = innerHeight;
+  const cols = ["#00f0ff","#ffb300","#ff4057","#2cff9a","#ffd400","#c77dff"];
+  const ps = Array.from({length: 140}, () => ({
+    x: Math.random() * c.width, y: -20 - Math.random() * c.height * .5,
+    r: 4 + Math.random() * 6, vy: 2 + Math.random() * 4, vx: -2 + Math.random() * 4,
+    col: cols[rand(cols.length)], rot: Math.random() * 6
+  }));
+  let frames = 0;
+  (function loop(){
+    x.clearRect(0, 0, c.width, c.height);
+    ps.forEach(p => { p.x += p.vx; p.y += p.vy; p.rot += .1;
+      x.save(); x.translate(p.x, p.y); x.rotate(p.rot); x.fillStyle = p.col; x.fillRect(-p.r, -p.r / 2, p.r * 2, p.r); x.restore(); });
+    if (++frames < 260) requestAnimationFrame(loop); else x.clearRect(0, 0, c.width, c.height);
+  })();
+}
+
+/* ============================ HOME ============================ */
+function renderHome(){
+  $("view").innerHTML = `
+    <div class="panel center pop">
+      <div class="label">${roomFromUrl ? "Room " + esc(roomFromUrl) : "Player name"}</div>
+      <input id="nm" placeholder="ENTER NAME" maxlength="14" value="${esc(myName)}">
+      ${roomFromUrl
+        ? `<button class="btn go" id="join">JOIN MATCH</button>`
+        : `<button class="btn go" id="create">CREATE MATCH</button>
+           <div class="label" style="margin:22px 0 0">or join with a code</div>
+           <input id="rc" placeholder="ROOM CODE" maxlength="5" style="text-transform:uppercase">
+           <button class="btn" id="join">JOIN MATCH</button>`}
+    </div>`;
+  const name = () => {
+    myName = $("nm").value.trim();
+    if (!myName){ setStatus("Enter a name", "bad"); $("nm").focus(); return false; }
+    return true;
+  };
+  const c = $("create");
+  if (c) c.onclick = () => { if (name()){ sfx.click(); startHost(); } };
+  $("join").onclick = () => {
+    if (!name()) return;
+    const code = roomFromUrl || $("rc").value.trim().toUpperCase();
+    if (code.length < 5){ setStatus("Enter the 5-letter room code", "bad"); return; }
+    sfx.click(); startGuest(code);
+  };
+}
+
+function showBusy(msg){
+  $("view").innerHTML = `<div class="panel center pop"><div class="wait" style="margin:0 0 6px">${esc(msg)}</div>
+    <button class="btn ghost" onclick="location.reload()">CANCEL</button></div>`;
+}
+function fail(msg){
+  $("view").innerHTML = `<div class="panel center pop">
+    <div style="font-family:system-ui,sans-serif;line-height:1.5;color:#ff8a98;margin-bottom:6px">${esc(msg)}</div>
+    <button class="btn" onclick="location.reload()">TRY AGAIN</button></div>`;
+  setStatus("");
+}
+
+/* ============================ NETWORKING ============================ */
+// STUN + TURN servers help two devices on different networks (Wi-Fi vs mobile data) find each other
+const PEER_OPTS = {
+  debug: 0,
+  config: { iceServers: [
+    { urls: "stun:stun.l.google.com:19302" },
+    { urls: "stun:global.stun.twilio.com:3478" },
+    { urls: "turn:openrelay.metered.ca:80", username: "openrelayproject", credential: "openrelayproject" },
+    { urls: "turn:openrelay.metered.ca:443", username: "openrelayproject", credential: "openrelayproject" },
+    { urls: "turn:openrelay.metered.ca:443?transport=tcp", username: "openrelayproject", credential: "openrelayproject" }
+  ]}
+};
+
+function loadScript(src){
+  return new Promise((res, rej) => {
+    const s = document.createElement("script");
+    s.src = src; s.onload = res; s.onerror = rej; document.head.appendChild(s);
+  });
+}
+async function ensurePeerLib(){
+  if (window.Peer) return true;
+  const urls = [
+    "https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js",
+    "https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.4/peerjs.min.js"
+  ];
+  for (const u of urls){
+    try{ await loadScript(u); if (window.Peer) return true; }catch(e){}
+  }
+  return false;
+}
+
+function makeCode(){
+  const c = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; let s = "";
+  for (let i = 0; i < 5; i++) s += c[rand(c.length)];
+  return s;
+}
+
+async function startHost(){
+  showBusy("Starting room...");
+  if (!(await ensurePeerLib())) return fail("Could not load the connection library. Check your internet, turn off any ad-blocker, and refresh.");
+  createRoom(0);
+}
+
+function createRoom(attempt){
+  isHost = true; myIdx = 0; roomCode = makeCode();
+  let opened = false;
+  const timer = setTimeout(() => {
+    if (!opened) fail("Can't reach the matchmaking server. Check your internet, or turn off VPN / ad-blocker and try again.");
+  }, 12000);
+  peer = new Peer(PREFIX + roomCode, PEER_OPTS);
+  peer.on("error", e => {
+    if (e.type === "unavailable-id" && attempt < 5){ clearTimeout(timer); try{ peer.destroy(); }catch(_){} return createRoom(attempt + 1); }
+    if (!opened){ clearTimeout(timer); fail("Connection error: " + e.type); }
+    else setStatus("Error: " + e.type, "bad");
+  });
+  peer.on("open", () => {
+    opened = true; clearTimeout(timer);
+    state = freshState();
+    state.players[0] = myName;
+    setStatus("Room ready", "good");
+    render();
+  });
+  peer.on("disconnected", () => { try{ peer.reconnect(); }catch(_){} });
+  peer.on("connection", c => {
+    if (conn && conn.open){ c.on("open", () => c.close()); return; }
+    conn = c;
+    c.on("data", d => hostHandle(d, 1));
+    c.on("close", () => setStatus("Player 2 disconnected", "bad"));
+  });
+}
+
+async function startGuest(code){
+  showBusy("Joining room " + code + "...");
+  if (!(await ensurePeerLib())) return fail("Could not load the connection library. Check your internet, turn off any ad-blocker, and refresh.");
+  isHost = false; myIdx = 1; roomCode = code;
+  let connected = false;
+  const timer = setTimeout(() => {
+    if (!connected) fail("Could not reach room " + code + ". Make sure the host's tab is still open and the code is correct. If you are on mobile data, try the same Wi-Fi as the host.");
+  }, 20000);
+  peer = new Peer(PEER_OPTS);
+  peer.on("error", e => {
+    if (connected){ setStatus("Error: " + e.type, "bad"); return; }
+    clearTimeout(timer);
+    fail(e.type === "peer-unavailable"
+      ? "Room " + code + " not found. Ask the host to keep their page open and check the code."
+      : "Connection error: " + e.type);
+  });
+  peer.on("disconnected", () => { try{ peer.reconnect(); }catch(_){} });
+  peer.on("open", () => {
+    conn = peer.connect(PREFIX + code, { reliable: true });
+    conn.on("open", () => { connected = true; clearTimeout(timer); conn.send({ t: "join", name: myName }); setStatus("Connected", "good"); });
+    conn.on("data", d => { if (d.t === "state"){ state = d.s; render(); } });
+    conn.on("close", () => setStatus("Host disconnected. Refresh to rejoin.", "bad"));
+    conn.on("error", e => setStatus("Link error", "bad"));
+  });
+}
+
+function broadcast(){ if (conn && conn.open) conn.send({ t: "state", s: state }); render(); }
+
+function act(action, extra = {}){
+  const msg = { t: "act", a: action, ...extra };
+  if (isHost) hostHandle(msg, 0);
+  else if (conn && conn.open) conn.send(msg);
+}
+
+/* ============================ HOST LOGIC ============================ */
+function freshState(){
+  return { players: [myName, null], phase: "waiting", turn: 0, lots: null, type: null, text: "", cat: "",
+           round: 1, usedT: [], usedD: [], scores: [0, 0], streak: [0, 0], target: TARGET, winner: null, event: null };
+}
+
+function pickQuestion(type){
+  const pool = type === "truth" ? flatTruths : DARES;
+  const used = type === "truth" ? state.usedT : state.usedD;
+  let free = pool.map((_, i) => i).filter(i => !used.includes(i));
+  if (!free.length){ used.length = 0; free = pool.map((_, i) => i); }
+  const i = free[rand(free.length)];
+  used.push(i);
+  state.type = type;
+  state.text = type === "truth" ? pool[i].q : pool[i];
+  state.cat = type === "truth" ? pool[i].cat : "Challenge";
+}
+
+function setEvent(text, kind){ state.event = { id: Date.now() + Math.random(), text, kind }; }
+
+function hostHandle(d, from){
+  if (d.t === "join"){
+    state.players[1] = d.name;
+    if (state.phase === "waiting") state.phase = "ready";
+    setStatus("Both players connected", "good");
+    return broadcast();
+  }
+  if (d.t !== "act") return;
+  const mine = state.turn === from;
+
+  switch (d.a){
+    case "lots":
+      if (state.phase !== "ready") return;
+      state.lots = { id: Date.now(), winner: rand(2) };
+      state.turn = state.lots.winner;
+      state.phase = "lots";
+      break;
+    case "start":
+      if (state.phase !== "lots") return;
+      state.phase = "choose";
+      break;
+    case "choose":
+      if (state.phase !== "choose" || !mine) return;
+      pickQuestion(d.type);
+      state.phase = "prompt";
+      break;
+    case "skip":
+      if (state.phase !== "prompt" || !mine) return;
+      state.scores[state.turn] = Math.max(0, state.scores[state.turn] - 5);
+      state.streak[state.turn] = 0;
+      setEvent("SKIPPED −5", "bad");
+      pickQuestion(state.type);
+      break;
+    case "done": {
+      if (state.phase !== "prompt" || !mine) return;
+      const t = state.turn;
+      state.streak[t] += 1;
+      const bonus = state.streak[t] >= 2 ? 5 : 0;
+      state.scores[t] += 10 + bonus;
+      setEvent(bonus ? `COMBO ×${state.streak[t]}  +${10 + bonus}` : "+10", "good");
+      if (state.scores[t] >= state.target){
+        state.phase = "over"; state.winner = t;
+      } else {
+        state.turn = 1 - t; state.round += 1; state.phase = "choose";
+      }
+      break;
+    }
+    case "rematch":
+      if (state.phase !== "over") return;
+      Object.assign(state, { phase: "ready", round: 1, usedT: [], usedD: [], scores: [0, 0], streak: [0, 0], winner: null, text: "", event: null });
+      break;
+  }
+  broadcast();
+}
+
+/* ============================ RENDER ============================ */
+function hud(){
+  const p = state.players, s = state.scores, st = state.streak;
+  const live = ["choose", "prompt"].includes(state.phase);
+  const card = i => `
+    <div class="pcard p${i} ${live && state.turn === i ? "active" : ""}">
+      <div class="pname">${esc(p[i] || "...")}${i === myIdx ? '<span class="you">YOU</span>' : ""}</div>
+      <div class="pscore">${s[i]}</div>
+      <div class="bar"><i style="width:${Math.min(100, s[i] / state.target * 100)}%"></i></div>
+      <div class="streak">${st[i] >= 2 ? "🔥 ×" + st[i] : ""}</div>
+    </div>`;
+  return `<div class="hud">${card(0)}<div class="vs">VS</div>${card(1)}</div>
+          <div class="round">ROUND ${String(state.round).padStart(2, "0")} · FIRST TO ${state.target}</div>`;
+}
+
+function render(){
+  if (!state) return renderHome();
+  if (animating) return;
+
+  if (state.phase === "lots" && state.lots && state.lots.id !== lastLotsId){
+    lastLotsId = state.lots.id; return runCoin();
+  }
+
+  // sound + toast reactions to synced state
+  const sig = state.phase + state.round + state.text + state.scores.join();
+  if (sig !== lastSig){
+    lastSig = sig;
+    if (state.phase === "prompt") sfx.reveal();
+    if (state.phase === "over"){ sfx.win(); confetti(); }
+  }
+  if (state.event && state.event.id !== lastEventId){
+    lastEventId = state.event.id;
+    toast(state.event.text, state.event.kind === "good" ? "var(--good)" : "var(--dare)");
+    state.event.kind === "good" ? sfx.good() : sfx.bad();
+    if (navigator.vibrate) navigator.vibrate(state.event.kind === "good" ? 60 : [40, 40, 40]);
+  }
+
+  const meTurn = state.turn === myIdx;
+  const turnName = state.players[state.turn] || "";
+  let html = "";
+
+  if (state.phase === "waiting"){
+    const web = location.protocol.indexOf("http") === 0;
+    const link = location.origin + location.pathname + "?room=" + roomCode;
+    $("view").innerHTML = `
+      <div class="panel center pop">
+        <div class="label">Room code</div>
+        <div class="code">${roomCode}</div>
+        ${web ? `<button class="btn" id="copy">COPY INVITE LINK</button>`
+              : `<div style="font-family:system-ui,sans-serif;color:#ffcf5c;font-size:.85rem;line-height:1.4;margin-top:8px">You opened the file directly, so there is no invite link. Share the code above, or open this game from your GitHub Pages address.</div>`}
+        <div class="wait">WAITING FOR PLAYER 2</div>
+      </div>`;
+    const cp = $("copy");
+    if (cp) cp.onclick = () => {
+      const done = () => { cp.textContent = "LINK COPIED ✔"; sfx.good(); };
+      if (navigator.clipboard) navigator.clipboard.writeText(link).then(done, () => { cp.textContent = link; });
+      else cp.textContent = link;
+    };
+    return;
+  }
+
+  if (state.phase === "ready"){
+    html = `
+      <div class="panel center pop">
+        <div class="matchup">
+          <div class="avatar p0"><span>🎮</span>${esc(state.players[0])}</div>
+          <div class="vsbig">VS</div>
+          <div class="avatar p1"><span>🎮</span>${esc(state.players[1])}</div>
+        </div>
+        <button class="btn" id="lots">🪙 FLIP COIN</button>
+      </div>`;
+  }
+  else if (state.phase === "lots"){
+    html = `
+      <div class="panel center pop">
+        <div class="label">First turn</div>
+        <div class="winner">${esc(turnName)}</div>
+        <button class="btn go" id="start">START MATCH</button>
+      </div>`;
+  }
+  else if (state.phase === "choose"){
+    html = hud() + `
+      <div class="center label" style="margin-bottom:12px">${meTurn ? "Your move" : esc(turnName) + " is picking"}</div>
+      <div class="picks">
+        <button class="pick truth" id="truth" ${meTurn ? "" : "disabled"}><span class="ic">🧠</span>TRUTH</button>
+        <button class="pick dare" id="dare" ${meTurn ? "" : "disabled"}><span class="ic">🔥</span>DARE</button>
+      </div>`;
+  }
+  else if (state.phase === "prompt"){
+    const secs = state.type === "truth" ? 45 : 60;
+    html = hud() + `
+      <div class="qcard ${state.type}" id="qc">
+        <span class="qtype">${state.type.toUpperCase()}</span><span class="qcat">${esc(state.cat)}</span>
+        <div class="qtext">${esc(state.text)}</div>
+        <div class="timer"><i style="animation-duration:${secs}s"></i></div>
+      </div>
+      ${meTurn
+        ? `<button class="btn go" id="done">✔ COMPLETE</button>
+           <button class="btn skip" id="skip">⏭ SKIP  −5</button>`
+        : `<div class="live"><b></b>${esc(turnName)} IS ON IT</div>`}`;
+  }
+  else if (state.phase === "over"){
+    const w = state.winner;
+    html = hud() + `
+      <div class="panel center pop">
+        <div class="label">Game over</div>
+        <div class="winner" style="font-size:1.9rem">🏆 ${esc(state.players[w])} WINS</div>
+        <div class="mute" style="margin-top:6px">${state.scores[0]} – ${state.scores[1]}</div>
+        <button class="btn" id="rematch">REMATCH</button>
+      </div>`;
+  }
+
+  $("view").innerHTML = html;
+  const on = (id, fn) => { const e = $(id); if (e) e.onclick = () => { sfx.click(); fn(); }; };
+  on("lots", () => act("lots"));
+  on("start", () => act("start"));
+  on("truth", () => act("choose", { type: "truth" }));
+  on("dare", () => act("choose", { type: "dare" }));
+  on("done", () => act("done"));
+  on("skip", () => act("skip"));
+  on("rematch", () => act("rematch"));
+}
+
+function runCoin(){
+  animating = true;
+  const w = state.lots.winner;
+  $("view").innerHTML = `
+    <div class="panel center">
+      <div class="label">Flipping</div>
+      <div class="coinwrap"><div class="coinbounce"><div class="coin" id="coin">
+        <div class="face f0">${esc(state.players[0])}</div>
+        <div class="face f1">${esc(state.players[1])}</div>
+      </div></div></div>
+    </div>`;
+  sfx.coin();
+  const coin = $("coin");
+  void coin.offsetWidth;
+  requestAnimationFrame(() => { coin.style.transform = `rotateY(${360 * 6 + (w ? 180 : 0)}deg)`; });
+  setTimeout(() => { sfx.good(); }, 2500);
+  setTimeout(() => { animating = false; render(); }, 3100);
+}
+
+/* ============================ INIT ============================ */
+renderHome();
+</script>
+</body>
+</html>
